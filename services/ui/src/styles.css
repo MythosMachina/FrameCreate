@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-base text-text font-body min-h-screen;
+  margin: 0;
+  background-image:
+    radial-gradient(circle at 18% 14%, rgba(70, 192, 195, 0.08), transparent 28%),
+    radial-gradient(circle at 78% 0%, rgba(213, 140, 63, 0.16), transparent 35%),
+    radial-gradient(circle at 80% 80%, rgba(91, 216, 143, 0.06), transparent 40%);
+}
+
+.framecreate-gear {
+  width: 46px;
+  height: 46px;
+  background: conic-gradient(from 45deg, #d58c3f, #b0732f, #d58c3f);
+  clip-path: polygon(50% 0%, 65% 15%, 85% 15%, 100% 30%, 100% 50%, 85% 65%, 85% 85%, 70% 100%, 50% 100%, 35% 85%, 15% 85%, 0% 70%, 0% 50%, 15% 35%, 15% 15%, 30% 0%);
+  filter: drop-shadow(0 0 8px rgba(213, 140, 63, 0.4));
+}
+
+.panel-sheen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 10% 10%, rgba(213, 140, 63, 0.08), transparent 30%),
+    radial-gradient(circle at 90% 30%, rgba(70, 192, 195, 0.12), transparent 35%);
+  pointer-events: none;
+}
+
+.glass-border {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.text-stroke {
+  text-shadow: 0 0 12px rgba(213, 140, 63, 0.35);
+}
+
+.corner-hover {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 70;
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+  font-family: "Space Mono", monospace;
+}
+.corner-hover-panel {
+  background: #10141a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: grid;
+  gap: 6px;
+  min-width: 200px;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45);
+}
+.corner-hover-title {
+  color: #e6edf7;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+.corner-hover a {
+  color: #d58c3f;
+  font-size: 11px;
+  text-decoration: none;
+}
+.corner-hover a:hover {
+  text-decoration: underline;
+}

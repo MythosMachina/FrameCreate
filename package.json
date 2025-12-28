@@ -1,0 +1,19 @@
+{
+  "name": "framecreate",
+  "private": true,
+  "workspaces": [
+    "services/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run -w @framecreate/ui dev",
+    "dev:api": "npm run -w @framecreate/api dev",
+    "dev:worker": "npm run -w @framecreate/worker dev",
+    "dev:indexer": "npm run -w @framecreate/indexer dev",
+    "build": "npm run -w @framecreate/shared build && npm run -w @framecreate/api build && npm run -w @framecreate/worker build && npm run -w @framecreate/indexer build && npm run -w @framecreate/ui build",
+    "start:api": "npm run -w @framecreate/api start",
+    "start:worker": "npm run -w @framecreate/worker start",
+    "start:indexer": "npm run -w @framecreate/indexer start",
+    "preview:ui": "npm run -w @framecreate/ui preview"
+  }
+}

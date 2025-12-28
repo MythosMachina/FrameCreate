@@ -1,0 +1,16 @@
+/storage/
+/.env
+/.env.local
+/node_modules/
+/dist/
+/coverage/
+/.cache/
+*.log
+*.pid
+.DS_Store
+Thumbs.db
+**/.venv/
+**/__pycache__/
+**/*.pyc
+services/*/dist/
+packages/*/dist/
