@@ -5,7 +5,7 @@ import fg from "fast-glob";
 import { Pool } from "pg";
 import { loadConfig } from "@framecreate/shared";
 
-export type AssetKind = "checkpoint" | "lora" | "embedding";
+export type AssetKind = "checkpoint" | "lora" | "embedding" | "vae";
 
 type ScanResult = {
   scanned: number;
@@ -20,13 +20,15 @@ const pool = new Pool({ connectionString: config.databaseUrl });
 const kindMap: Record<AssetKind, string[]> = {
   checkpoint: ["**/*.safetensors", "**/*.ckpt", "**/*.pt", "**/*.onnx"],
   lora: ["**/*.safetensors", "**/*.pt"],
-  embedding: ["**/*.pt", "**/*.bin"]
+  embedding: ["**/*.pt", "**/*.bin"],
+  vae: ["**/*.safetensors", "**/*.ckpt", "**/*.pt", "**/*.onnx"]
 };
 
 const kindRoot: Record<AssetKind, string> = {
   checkpoint: config.modelsDir,
   lora: config.lorasDir,
-  embedding: config.embeddingsDir
+  embedding: config.embeddingsDir,
+  vae: config.vaesDir
 };
 
 async function hashFile(filePath: string) {

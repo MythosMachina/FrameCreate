@@ -73,6 +73,7 @@ FrameCreate stores everything it needs under the `storage/` folder. You can drop
 storage/
   models/       # base checkpoints (.safetensors)
   loras/        # LoRA adapters (.safetensors)
+  vaes/         # VAE weights
   embeddings/   # text embeddings
   outputs/      # generated images
   thumbnails/   # UI thumbnails
@@ -92,7 +93,9 @@ Example:
   green
   ```
 - Prompt: `a __colors__ car`  
-  Each image in a series uses the next line from the file. New runs start from the top again.
+  Each image in a series uses the next line from the file; when the batch exceeds the list, values cycle from the top. Lines without letters are ignored.
+
+Optional: send `wildcard_strategy` in the job request (`sequential`, `cycle`, `random`) to control selection.
 
 ## Optional: advanced setup
 If you want to change ports, database settings, or runtime options, edit `.env`. You can start from `.env.example`.

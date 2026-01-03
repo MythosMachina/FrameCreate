@@ -6,6 +6,7 @@ FrameCreate expects a predictable filesystem layout for models, LoRAs, embedding
 
 - `storage/models` - checkpoints and base models
 - `storage/loras` - LoRA weights
+- `storage/vaes` - VAE weights
 - `storage/embeddings` - text/embedding weights
 - `storage/outputs` - generated images
 - `storage/thumbnails` - preview thumbnails (reserved)
@@ -14,6 +15,7 @@ FrameCreate expects a predictable filesystem layout for models, LoRAs, embedding
 
 - Checkpoints: `.safetensors`, `.ckpt`, `.pt`, `.onnx`
 - LoRAs: `.safetensors`, `.pt`
+- VAEs: `.safetensors`, `.ckpt`, `.pt`, `.onnx`
 - Embeddings: `.pt`, `.bin`
 
 ## Metadata sidecars

@@ -6,6 +6,7 @@ const envSchema = z.object({
   FRAMECREATE_DATABASE_URL: z.string().min(1),
   FRAMECREATE_MODELS_DIR: z.string().optional(),
   FRAMECREATE_LORAS_DIR: z.string().optional(),
+  FRAMECREATE_VAES_DIR: z.string().optional(),
   FRAMECREATE_EMBEDDINGS_DIR: z.string().optional(),
   FRAMECREATE_OUTPUTS_DIR: z.string().optional(),
   FRAMECREATE_THUMBNAILS_DIR: z.string().optional(),
@@ -23,6 +24,7 @@ export type FrameCreateConfig = {
   databaseUrl: string;
   modelsDir: string;
   lorasDir: string;
+  vaesDir: string;
   embeddingsDir: string;
   outputsDir: string;
   thumbnailsDir: string;
@@ -51,6 +53,7 @@ export function loadConfig(cwd = process.cwd()): FrameCreateConfig {
     databaseUrl: env.FRAMECREATE_DATABASE_URL,
     modelsDir: env.FRAMECREATE_MODELS_DIR ?? resolveFromRoot("storage/models"),
     lorasDir: env.FRAMECREATE_LORAS_DIR ?? resolveFromRoot("storage/loras"),
+    vaesDir: env.FRAMECREATE_VAES_DIR ?? resolveFromRoot("storage/vaes"),
     embeddingsDir: env.FRAMECREATE_EMBEDDINGS_DIR ?? resolveFromRoot("storage/embeddings"),
     outputsDir: env.FRAMECREATE_OUTPUTS_DIR ?? resolveFromRoot("storage/outputs"),
     thumbnailsDir: env.FRAMECREATE_THUMBNAILS_DIR ?? resolveFromRoot("storage/thumbnails"),

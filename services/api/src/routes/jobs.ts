@@ -22,6 +22,7 @@ type JobParams = {
   lora_asset_ids?: number[];
   lora_weights?: number[];
   preset_style_ids?: string[];
+  wildcard_strategy?: "sequential" | "cycle" | "random";
 };
 
 type JobRow = {
@@ -138,18 +139,35 @@ export async function registerJobRoutes(app: FastifyInstance) {
       const lines = raw
         .split(/\r?\n/)
         .map((line) => line.trim())
-        .filter((line) => line.length > 0);
+        .filter((line) => line.length > 0)
+        .filter((line) => /[A-Za-z]/.test(line));
       wildcardMap.set(name, lines);
     });
     const batchCount = body.batch_count ?? 1;
+    const wildcardStrategy = body.wildcard_strategy ?? "cycle";
     const promptVariants = wildcardMap.size === 0
       ? []
-      : Array.from({ length: batchCount }, (_value, index) =>
-          combinedPrompt.replace(wildcardRegex, (_match, name: string) => {
-            const values = wildcardMap.get(name) ?? [];
-            return values[index] ?? "";
-          })
-        );
+      : Array.from({ length: batchCount }, (_value, index) => {
+          const selections = new Map<string, string>();
+          wildcardMap.forEach((values, name) => {
+            if (values.length === 0) {
+              selections.set(name, "");
+              return;
+            }
+            if (wildcardStrategy === "sequential") {
+              selections.set(name, values[index] ?? "");
+              return;
+            }
+            if (wildcardStrategy === "random") {
+              const pick = Math.floor(Math.random() * values.length);
+              selections.set(name, values[pick] ?? "");
+              return;
+            }
+            const wrapped = index % values.length;
+            selections.set(name, values[wrapped] ?? "");
+          });
+          return combinedPrompt.replace(wildcardRegex, (_match, name: string) => selections.get(name) ?? "");
+        });
     const resolvedPrompt = promptVariants.length > 0 ? promptVariants[0] : combinedPrompt;
 
     const defaults = await loadDefaults();

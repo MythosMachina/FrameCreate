@@ -56,7 +56,34 @@ def main():
         pipe = StableDiffusionPipeline.from_single_file(
             str(model_path), torch_dtype=torch_dtype
         )
-    pipe = pipe.to("cuda" if torch.cuda.is_available() else "cpu")
+
+    vram_mode = os.getenv("FRAMECREATE_VRAM_MODE", "balanced").strip().lower()
+    if torch.cuda.is_available():
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
+
+    if vram_mode == "low" and torch.cuda.is_available():
+        if hasattr(pipe, "enable_vae_slicing"):
+            pipe.enable_vae_slicing()
+        if hasattr(pipe, "enable_vae_tiling"):
+            pipe.enable_vae_tiling()
+        if hasattr(pipe, "enable_attention_slicing"):
+            pipe.enable_attention_slicing("max")
+        if hasattr(pipe, "enable_model_cpu_offload"):
+            pipe.enable_model_cpu_offload()
+    else:
+        pipe = pipe.to("cuda" if torch.cuda.is_available() else "cpu")
+        if hasattr(pipe, "enable_xformers_memory_efficient_attention"):
+            try:
+                pipe.enable_xformers_memory_efficient_attention()
+            except Exception:
+                if hasattr(pipe, "enable_attention_slicing"):
+                    pipe.enable_attention_slicing("auto")
+        elif hasattr(pipe, "enable_attention_slicing"):
+            pipe.enable_attention_slicing("auto")
+        if hasattr(pipe, "enable_vae_slicing"):
+            pipe.enable_vae_slicing()
+
     if hasattr(pipe, "safety_checker"):
         pipe.safety_checker = None
 
@@ -129,15 +156,16 @@ def main():
         sys.exit(1)
 
     generator = torch.Generator(device=pipe.device).manual_seed(args.seed)
-    result = pipe(
-        prompt=args.prompt,
-        negative_prompt=args.negative,
-        width=args.width,
-        height=args.height,
-        num_inference_steps=args.steps,
-        guidance_scale=args.cfg,
-        generator=generator,
-    )
+    with torch.inference_mode():
+        result = pipe(
+            prompt=args.prompt,
+            negative_prompt=args.negative,
+            width=args.width,
+            height=args.height,
+            num_inference_steps=args.steps,
+            guidance_scale=args.cfg,
+            generator=generator,
+        )
 
     os.makedirs(Path(args.output).parent, exist_ok=True)
     result.images[0].save(args.output)

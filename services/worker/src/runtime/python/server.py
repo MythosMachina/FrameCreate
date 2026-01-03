@@ -18,6 +18,40 @@ def load_pipeline(model_path, torch_dtype):
     return pipe
 
 
+def optimize_pipeline(pipe, device):
+    import torch
+
+    vram_mode = os.getenv("FRAMECREATE_VRAM_MODE", "balanced").strip().lower()
+
+    if torch.cuda.is_available():
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
+
+    if vram_mode == "low" and torch.cuda.is_available():
+        if hasattr(pipe, "enable_vae_slicing"):
+            pipe.enable_vae_slicing()
+        if hasattr(pipe, "enable_vae_tiling"):
+            pipe.enable_vae_tiling()
+        if hasattr(pipe, "enable_attention_slicing"):
+            pipe.enable_attention_slicing("max")
+        if hasattr(pipe, "enable_model_cpu_offload"):
+            pipe.enable_model_cpu_offload()
+        return pipe
+
+    pipe = pipe.to(device)
+    if hasattr(pipe, "enable_xformers_memory_efficient_attention"):
+        try:
+            pipe.enable_xformers_memory_efficient_attention()
+        except Exception:
+            if hasattr(pipe, "enable_attention_slicing"):
+                pipe.enable_attention_slicing("auto")
+    elif hasattr(pipe, "enable_attention_slicing"):
+        pipe.enable_attention_slicing("auto")
+    if hasattr(pipe, "enable_vae_slicing"):
+        pipe.enable_vae_slicing()
+    return pipe
+
+
 def configure_scheduler(pipe, sampler, schedule_mode):
     from diffusers.schedulers import (
         DDIMScheduler,
@@ -142,7 +176,7 @@ def main():
         try:
             if pipe is None or current_model != str(model_path):
                 pipe = load_pipeline(model_path, torch_dtype)
-                pipe = pipe.to(device)
+                pipe = optimize_pipeline(pipe, device)
                 if hasattr(pipe, "safety_checker"):
                     pipe.safety_checker = None
                 current_model = str(model_path)
@@ -192,17 +226,18 @@ def main():
                 return callback_kwargs
 
             generator = torch.Generator(device=pipe.device).manual_seed(int(payload.get("seed", 0)))
-            result = pipe(
-                prompt=payload.get("prompt", ""),
-                negative_prompt=payload.get("negative_prompt", ""),
-                width=int(payload.get("width", 1024)),
-                height=int(payload.get("height", 1024)),
-                num_inference_steps=int(payload.get("steps", 30)),
-                guidance_scale=float(payload.get("cfg", 7.5)),
-                generator=generator,
-                callback_on_step_end=callback_on_step_end if preview_interval else None,
-                callback_on_step_end_tensor_inputs=["latents"] if preview_interval else None,
-            )
+            with torch.inference_mode():
+                result = pipe(
+                    prompt=payload.get("prompt", ""),
+                    negative_prompt=payload.get("negative_prompt", ""),
+                    width=int(payload.get("width", 1024)),
+                    height=int(payload.get("height", 1024)),
+                    num_inference_steps=int(payload.get("steps", 30)),
+                    guidance_scale=float(payload.get("cfg", 7.5)),
+                    generator=generator,
+                    callback_on_step_end=callback_on_step_end if preview_interval else None,
+                    callback_on_step_end_tensor_inputs=["latents"] if preview_interval else None,
+                )
 
             output_path = Path(payload.get("output", "output.png"))
             os.makedirs(output_path.parent, exist_ok=True)
