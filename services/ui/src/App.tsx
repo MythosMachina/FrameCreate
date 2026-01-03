@@ -269,6 +269,59 @@ function GeneratePage() {
     if (!currentJobId) {
       return;
     }
+    const source = new EventSource(`${API_BASE}/api/events`);
+    const onProgress = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data) as { jobId?: number; progress?: number };
+        if (data.jobId !== currentJobId) {
+          return;
+        }
+        setProgress(Math.round(((data.progress ?? 0) * 100)));
+        setJobStatus("running");
+        setLivePreviewUrl(`${API_BASE}/api/jobs/${currentJobId}/preview?t=${Date.now()}`);
+      } catch {
+        // ignore malformed payloads
+      }
+    };
+    const onCompleted = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data) as { jobId?: number };
+        if (data.jobId !== currentJobId) {
+          return;
+        }
+        setProgress(100);
+        setJobStatus("completed");
+        fetch(`${API_BASE}/api/outputs`)
+          .then((res) => res.json())
+          .then((outputs: OutputItem[]) => setLatestOutput(outputs[0] ?? null))
+          .catch(() => setLatestOutput(null));
+        setLivePreviewUrl(null);
+        localStorage.removeItem(CURRENT_JOB_KEY);
+        setCurrentJobId(null);
+        source.close();
+      } catch {
+        // ignore malformed payloads
+      }
+    };
+    const onError = () => {
+      source.close();
+    };
+    source.addEventListener("progress", onProgress);
+    source.addEventListener("completed", onCompleted);
+    source.addEventListener("error", onError as EventListener);
+
+    return () => {
+      source.removeEventListener("progress", onProgress);
+      source.removeEventListener("completed", onCompleted);
+      source.removeEventListener("error", onError as EventListener);
+      source.close();
+    };
+  }, [currentJobId]);
+
+  useEffect(() => {
+    if (!currentJobId) {
+      return;
+    }
     const interval = setInterval(() => {
       fetch(`${API_BASE}/api/jobs/${currentJobId}`)
         .then((res) => res.json())
@@ -296,7 +349,7 @@ function GeneratePage() {
         })
         .catch(() => {
           clearInterval(interval);
-        });
+      });
     }, 1500);
     return () => clearInterval(interval);
   }, [currentJobId]);
@@ -851,12 +904,7 @@ function HistoryPage() {
 
 function SystemPage() {
   const [activePanel, setActivePanel] = useState<string | null>(null);
-  const [settings, setSettings] = useState<AppSettings>({
-    default_sampler: "euler",
-    default_scheduler: "karras",
-    preview_enabled: true,
-    preview_interval: 3
-  });
+  const [settings, setSettings] = useState<AppSettings | null>(null);
   const [settingsStatus, setSettingsStatus] = useState<string | null>(null);
   const [serviceStatus, setServiceStatus] = useState({ worker: "unknown", indexer: "unknown" });
   const samplerOptions = [
@@ -899,8 +947,8 @@ function SystemPage() {
         { label: "Default Steps", value: "30" },
         { label: "Default CFG", value: "7.5" },
         { label: "Clip Skip", value: "2" },
-        { label: "Live Preview", value: settings.preview_enabled ? "on" : "off" },
-        { label: "Preview Interval", value: String(settings.preview_interval) }
+        { label: "Live Preview", value: settings ? (settings.preview_enabled ? "on" : "off") : "-" },
+        { label: "Preview Interval", value: settings ? String(settings.preview_interval) : "-" }
       ]
     },
     {
@@ -921,8 +969,8 @@ function SystemPage() {
       label: "Samplers",
       description: "Sampler defaults and quality bias",
       fields: [
-        { label: "Default Sampler", value: settings.default_sampler },
-        { label: "Scheduler", value: settings.default_scheduler },
+        { label: "Default Sampler", value: settings?.default_sampler ?? "-" },
+        { label: "Scheduler", value: settings?.default_scheduler ?? "-" },
         { label: "Sharpness Bias", value: "balanced" }
       ]
     },
@@ -946,15 +994,14 @@ function SystemPage() {
     fetch(`${API_BASE}/api/settings`)
       .then((res) => res.json())
       .then((data: AppSettings) => setSettings(data))
-      .catch(() => setSettings({
-        default_sampler: "euler",
-        default_scheduler: "karras",
-        preview_enabled: true,
-        preview_interval: 3
-      }));
+      .catch(() => setSettings(null));
   };
 
   const saveSamplerSettings = () => {
+    if (!settings) {
+      setSettingsStatus("Settings not loaded.");
+      return;
+    }
     setSettingsStatus("Saving...");
     fetch(`${API_BASE}/api/settings`, {
       method: "PUT",
@@ -973,6 +1020,10 @@ function SystemPage() {
   };
 
   const savePerformanceSettings = () => {
+    if (!settings) {
+      setSettingsStatus("Settings not loaded.");
+      return;
+    }
     setSettingsStatus("Saving...");
     fetch(`${API_BASE}/api/settings`, {
       method: "PUT",
@@ -1056,65 +1107,88 @@ function SystemPage() {
             <div className="mt-6 grid gap-3">
               {isSamplers ? (
                 <>
-                  <div className="flex items-center justify-between rounded-lg border border-white/10 bg-panelAlt px-4 py-3 text-xs">
-                    <span className="uppercase tracking-[0.2em] text-muted">Default Sampler</span>
-                    <select
-                      className="w-48 rounded-lg border border-white/10 bg-panel px-3 py-2 text-xs text-text"
-                      value={settings.default_sampler}
-                      onChange={(event) => setSettings((prev) => ({ ...prev, default_sampler: event.target.value }))}
-                    >
-                      {samplerOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex items-center justify-between rounded-lg border border-white/10 bg-panelAlt px-4 py-3 text-xs">
-                    <span className="uppercase tracking-[0.2em] text-muted">Scheduler</span>
-                    <select
-                      className="w-48 rounded-lg border border-white/10 bg-panel px-3 py-2 text-xs text-text"
-                      value={settings.default_scheduler}
-                      onChange={(event) => setSettings((prev) => ({ ...prev, default_scheduler: event.target.value }))}
-                    >
-                      {schedulerOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex items-center justify-between rounded-lg border border-white/10 bg-panelAlt px-4 py-3 text-xs">
-                    <span className="uppercase tracking-[0.2em] text-muted">Sharpness Bias</span>
-                    <input
-                      className="w-48 rounded-lg border border-white/10 bg-panel px-3 py-2 text-xs text-text"
-                      defaultValue="balanced"
-                    />
-                  </div>
+                  {settings ? (
+                    <>
+                      <div className="flex items-center justify-between rounded-lg border border-white/10 bg-panelAlt px-4 py-3 text-xs">
+                        <span className="uppercase tracking-[0.2em] text-muted">Default Sampler</span>
+                        <select
+                          className="w-48 rounded-lg border border-white/10 bg-panel px-3 py-2 text-xs text-text"
+                          value={settings.default_sampler}
+                          onChange={(event) =>
+                            setSettings((prev) => (prev ? { ...prev, default_sampler: event.target.value } : prev))
+                          }
+                        >
+                          {samplerOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex items-center justify-between rounded-lg border border-white/10 bg-panelAlt px-4 py-3 text-xs">
+                        <span className="uppercase tracking-[0.2em] text-muted">Scheduler</span>
+                        <select
+                          className="w-48 rounded-lg border border-white/10 bg-panel px-3 py-2 text-xs text-text"
+                          value={settings.default_scheduler}
+                          onChange={(event) =>
+                            setSettings((prev) => (prev ? { ...prev, default_scheduler: event.target.value } : prev))
+                          }
+                        >
+                          {schedulerOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex items-center justify-between rounded-lg border border-white/10 bg-panelAlt px-4 py-3 text-xs">
+                        <span className="uppercase tracking-[0.2em] text-muted">Sharpness Bias</span>
+                        <input
+                          className="w-48 rounded-lg border border-white/10 bg-panel px-3 py-2 text-xs text-text"
+                          defaultValue="balanced"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="rounded-lg border border-white/10 bg-panelAlt px-4 py-3 text-xs text-muted">
+                      Settings not loaded.
+                    </div>
+                  )}
                 </>
               ) : isPerformance ? (
                 <>
-                  <div className="flex items-center justify-between rounded-lg border border-white/10 bg-panelAlt px-4 py-3 text-xs">
-                    <span className="uppercase tracking-[0.2em] text-muted">Live Preview</span>
-                    <input
-                      type="checkbox"
-                      checked={settings.preview_enabled}
-                      onChange={(event) => setSettings((prev) => ({ ...prev, preview_enabled: event.target.checked }))}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between rounded-lg border border-white/10 bg-panelAlt px-4 py-3 text-xs">
-                    <span className="uppercase tracking-[0.2em] text-muted">Preview Interval</span>
-                    <input
-                      className="w-28 rounded-lg border border-white/10 bg-panel px-3 py-2 text-xs text-text"
-                      value={String(settings.preview_interval)}
-                      onChange={(event) =>
-                        setSettings((prev) => ({
-                          ...prev,
-                          preview_interval: Math.max(1, Number(event.target.value) || 1)
-                        }))
-                      }
-                    />
-                  </div>
+                  {settings ? (
+                    <>
+                      <div className="flex items-center justify-between rounded-lg border border-white/10 bg-panelAlt px-4 py-3 text-xs">
+                        <span className="uppercase tracking-[0.2em] text-muted">Live Preview</span>
+                        <input
+                          type="checkbox"
+                          checked={settings.preview_enabled}
+                          onChange={(event) =>
+                            setSettings((prev) => (prev ? { ...prev, preview_enabled: event.target.checked } : prev))
+                          }
+                        />
+                      </div>
+                      <div className="flex items-center justify-between rounded-lg border border-white/10 bg-panelAlt px-4 py-3 text-xs">
+                        <span className="uppercase tracking-[0.2em] text-muted">Preview Interval</span>
+                        <input
+                          className="w-28 rounded-lg border border-white/10 bg-panel px-3 py-2 text-xs text-text"
+                          value={String(settings.preview_interval)}
+                          onChange={(event) =>
+                            setSettings((prev) =>
+                              prev
+                                ? { ...prev, preview_interval: Math.max(1, Number(event.target.value) || 1) }
+                                : prev
+                            )
+                          }
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="rounded-lg border border-white/10 bg-panelAlt px-4 py-3 text-xs text-muted">
+                      Settings not loaded.
+                    </div>
+                  )}
                 </>
               ) : (
                 active.fields.map((field) => (
@@ -1133,6 +1207,7 @@ function SystemPage() {
                 className="rounded-xl border border-accent bg-accent/10 px-4 py-2 text-xs uppercase tracking-[0.2em] text-accent hover:bg-accent/20"
                 onClick={isSamplers ? saveSamplerSettings : isPerformance ? savePerformanceSettings : undefined}
                 type="button"
+                disabled={!settings && (isSamplers || isPerformance)}
               >
                 Save
               </button>
@@ -1140,6 +1215,7 @@ function SystemPage() {
                 className="rounded-xl border border-white/10 bg-panelAlt px-4 py-2 text-xs uppercase tracking-[0.2em] text-text/80 hover:border-accent"
                 onClick={isSamplers || isPerformance ? loadSettings : undefined}
                 type="button"
+                disabled={!settings && (isSamplers || isPerformance)}
               >
                 Reset
               </button>

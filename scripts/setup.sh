@@ -35,6 +35,7 @@ require_cmd python3
 log "Creating storage folders"
 mkdir -p "${ROOT_DIR}/storage/models" \
   "${ROOT_DIR}/storage/loras" \
+  "${ROOT_DIR}/storage/vaes" \
   "${ROOT_DIR}/storage/embeddings" \
   "${ROOT_DIR}/storage/outputs" \
   "${ROOT_DIR}/storage/thumbnails" \
@@ -54,6 +55,7 @@ CONCURRENCY="${FRAMECREATE_CONCURRENCY:-$(get_env_value FRAMECREATE_CONCURRENCY)
 RUNTIME="${FRAMECREATE_RUNTIME:-$(get_env_value FRAMECREATE_RUNTIME)}"
 PYTHON_MODE="${FRAMECREATE_PYTHON_MODE:-$(get_env_value FRAMECREATE_PYTHON_MODE)}"
 PYTHON_BIN="${FRAMECREATE_PYTHON_BIN:-$(get_env_value FRAMECREATE_PYTHON_BIN)}"
+VRAM_MODE="${FRAMECREATE_VRAM_MODE:-$(get_env_value FRAMECREATE_VRAM_MODE)}"
 
 API_PORT="${API_PORT:-4100}"
 WORKER_PORT="${WORKER_PORT:-4200}"
@@ -63,6 +65,7 @@ CONCURRENCY="${CONCURRENCY:-1}"
 RUNTIME="${RUNTIME:-python}"
 PYTHON_MODE="${PYTHON_MODE:-server}"
 PYTHON_BIN="${PYTHON_BIN:-services/worker/runtime/.venv/bin/python}"
+VRAM_MODE="${VRAM_MODE:-balanced}"
 
 cat > "$ENV_FILE" <<EOF
 FRAMECREATE_DATABASE_URL=${DB_URL}
@@ -77,6 +80,7 @@ FRAMECREATE_CONCURRENCY=${CONCURRENCY}
 FRAMECREATE_RUNTIME=${RUNTIME}
 FRAMECREATE_PYTHON_MODE=${PYTHON_MODE}
 FRAMECREATE_PYTHON_BIN=${PYTHON_BIN}
+FRAMECREATE_VRAM_MODE=${VRAM_MODE}
 EOF
 
 log "Installing npm dependencies"

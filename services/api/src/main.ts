@@ -9,6 +9,7 @@ import { registerSettingsRoutes } from "./routes/settings.js";
 import { registerStyleRoutes } from "./routes/styles.js";
 import { registerRuntimeRoutes } from "./routes/runtime.js";
 import { registerSystemRoutes } from "./routes/system.js";
+import { registerEventRoutes } from "./routes/events.js";
 
 const config = loadConfig(process.cwd());
 
@@ -27,5 +28,6 @@ await registerSettingsRoutes(app);
 await registerStyleRoutes(app);
 await registerRuntimeRoutes(app);
 await registerSystemRoutes(app);
+await registerEventRoutes(app);
 
 app.listen({ port: config.apiPort, host: "0.0.0.0" });
